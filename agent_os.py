@@ -413,6 +413,8 @@ def handle_document_upload(sender, media_id, filename):
             success, message = add_documents_to_vector_index(file_bytes, filename)
             
             if success:
+                # Save file metadata to Firebase
+                save_uploaded_file_metadata(sender, filename, len(file_bytes), message.split(' ')[-2] if 'chunks' in message else 0)
                 send_whatsapp_message(sender, f"✅ Success! {message}\n\nI can now answer questions based on this content. Try asking me something about it!")
             else:
                 send_whatsapp_message(sender, f"❌ Failed to process file: {message}")
@@ -424,6 +426,7 @@ def handle_document_upload(sender, media_id, filename):
     # Clear state and show menu
     if sender in user_states:
         del user_states[sender]
+        clear_user_state_from_firebase(sender)
     end_conversation_and_show_menu(sender, None)
     print(f"Document upload task for {sender} finished.")
 
@@ -673,6 +676,225 @@ def build_subject_vector_index():
     db.save_local("vector_index/subject_docs")
     print("Generic Subject Vector Index built successfully.")
 
+
+# ==============================================================================
+# --- FIREBASE CONFIGURATION
+# ==============================================================================
+
+# Initialize Firebase
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate('firebase_config.json')
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("Firebase initialized successfully")
+except Exception as e:
+    print(f"Firebase initialization error: {e}")
+    db = None
+
+# ==============================================================================
+# --- FIREBASE MEMORY MANAGEMENT
+# ==============================================================================
+
+def get_user_memory_from_firebase(user_id):
+    """Retrieve user memory from Firebase"""
+    if not db:
+        return []
+    
+    try:
+        doc_ref = db.collection('user_memories').document(user_id)
+        doc = doc_ref.get()
+        
+        if doc.exists:
+            data = doc.to_dict()
+            return data.get('conversation_history', [])
+        else:
+            # Create new user document
+            doc_ref.set({
+                'user_id': user_id,
+                'conversation_history': [],
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            })
+            return []
+    except Exception as e:
+        print(f"Error getting user memory from Firebase: {e}")
+        return []
+
+def save_user_memory_to_firebase(user_id, conversation_history):
+    """Save user memory to Firebase"""
+    if not db:
+        return False
+    
+    try:
+        doc_ref = db.collection('user_memories').document(user_id)
+        doc_ref.set({
+            'user_id': user_id,
+            'conversation_history': conversation_history,
+            'updated_at': datetime.now()
+        }, merge=True)
+        return True
+    except Exception as e:
+        print(f"Error saving user memory to Firebase: {e}")
+        return False
+
+def append_to_memory(user_id, role, content):
+    """
+    Appends a message to a user's conversation history and saves to Firebase
+    """
+    # The Gemini API expects "user" and "model" as roles
+    api_role = "model" if role == "assistant" else "user"
+    
+    # Get existing memory from Firebase
+    if user_id not in user_memory:
+        user_memory[user_id] = get_user_memory_from_firebase(user_id)
+    
+    # Append new message
+    user_memory[user_id].append({"role": api_role, "parts": [str(content)]})
+    
+    # Limit history length
+    if len(user_memory[user_id]) > MAX_HISTORY:
+        user_memory[user_id] = user_memory[user_id][-MAX_HISTORY:]
+    
+    # Save to Firebase
+    save_user_memory_to_firebase(user_id, user_memory[user_id])
+
+def get_user_state_from_firebase(user_id):
+    """Retrieve user state from Firebase"""
+    if not db:
+        return "", {}
+    
+    try:
+        doc_ref = db.collection('user_states').document(user_id)
+        doc = doc_ref.get()
+        
+        if doc.exists:
+            data = doc.to_dict()
+            return data.get('current_state', ''), data.get('temp_data', {})
+        else:
+            # Create new user state document
+            doc_ref.set({
+                'user_id': user_id,
+                'current_state': '',
+                'temp_data': {},
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            })
+            return "", {}
+    except Exception as e:
+        print(f"Error getting user state from Firebase: {e}")
+        return "", {}
+
+def save_user_state_to_firebase(user_id, current_state, temp_data):
+    """Save user state to Firebase"""
+    if not db:
+        return False
+    
+    try:
+        doc_ref = db.collection('user_states').document(user_id)
+        doc_ref.set({
+            'user_id': user_id,
+            'current_state': current_state,
+            'temp_data': temp_data,
+            'updated_at': datetime.now()
+        }, merge=True)
+        return True
+    except Exception as e:
+        print(f"Error saving user state to Firebase: {e}")
+        return False
+
+def clear_user_state_from_firebase(user_id):
+    """Clear user state from Firebase"""
+    if not db:
+        return False
+    
+    try:
+        doc_ref = db.collection('user_states').document(user_id)
+        doc_ref.set({
+            'user_id': user_id,
+            'current_state': '',
+            'temp_data': {},
+            'updated_at': datetime.now()
+        }, merge=True)
+        return True
+    except Exception as e:
+        print(f"Error clearing user state from Firebase: {e}")
+        return False
+
+def save_uploaded_file_metadata(user_id, filename, file_size, chunks_count):
+    """Save uploaded file metadata to Firebase"""
+    if not db:
+        return False
+    
+    try:
+        file_id = str(uuid.uuid4())
+        doc_ref = db.collection('uploaded_files').document(file_id)
+        doc_ref.set({
+            'file_id': file_id,
+            'user_id': user_id,
+            'filename': filename,
+            'file_size': file_size,
+            'chunks_count': chunks_count,
+            'uploaded_at': datetime.now()
+        })
+        return True
+    except Exception as e:
+        print(f"Error saving file metadata to Firebase: {e}")
+        return False
+
+def get_user_uploaded_files(user_id):
+    """Get list of files uploaded by a user"""
+    if not db:
+        return []
+    
+    try:
+        docs = db.collection('uploaded_files').where('user_id', '==', user_id).stream()
+        files = []
+        for doc in docs:
+            file_data = doc.to_dict()
+            files.append({
+                'filename': file_data.get('filename'),
+                'uploaded_at': file_data.get('uploaded_at'),
+                'file_size': file_data.get('file_size')
+            })
+        return files
+    except Exception as e:
+        print(f"Error getting user uploaded files: {e}")
+        return []
+
+# ==============================================================================
+# --- UPDATED STATE MANAGEMENT WITH FIREBASE
+# ==============================================================================
+
+def initialize_user_session(sender):
+    """Initialize user session with data from Firebase"""
+    # Load memory from Firebase
+    if sender not in user_memory:
+        user_memory[sender] = get_user_memory_from_firebase(sender)
+    
+    # Load state from Firebase
+    if sender not in user_states or sender not in user_temp_data:
+        current_state, temp_data = get_user_state_from_firebase(sender)
+        user_states[sender] = current_state
+        user_temp_data[sender] = temp_data
+
+def update_user_state(sender, state=None, temp_data=None):
+    """Update user state and save to Firebase"""
+    if state is not None:
+        user_states[sender] = state
+    
+    if temp_data is not None:
+        user_temp_data[sender].update(temp_data)
+    
+    # Save to Firebase
+    save_user_state_to_firebase(sender, user_states.get(sender, ''), user_temp_data.get(sender, {}))
+
+def clear_user_session(sender):
+    """Clear user session and update Firebase"""
+    user_states.pop(sender, None)
+    user_temp_data.pop(sender, None)
+    clear_user_state_from_firebase(sender)
+
 # ---------------------------------
 # --- VOICE INPUT HELPER FUNCTIONS
 # ---------------------------------
@@ -755,14 +977,13 @@ def end_conversation_and_show_menu(sender, final_message):
     if final_message:
         send_whatsapp_message(sender, final_message)
     
-    user_states.pop(sender, None)
-    user_temp_data.pop(sender, None)
-
+    # Clear state and save to Firebase
+    clear_user_session(sender)
+    
     menu_text = "What would you like to do next?"
     options = ["Ask Question", "Create Worksheet", "Create PPT", "Upload Material", "View Uploaded Files", "Podcast from Image", "Summary from Image", "Create Video"]
     send_menu_message(sender, menu_text, options)
-    append_to_memory(sender, "assistant", "Displayed main menu.")
-
+    append_to_memory(sender, "assistant", "Task complete. Displayed main menu.")
 #
 # ---------------------------------
 # --- RAG & VECTOR DB FUNCTIONS
@@ -1366,79 +1587,91 @@ def generate_voiceover(text):
         return None
     
 def process_message(sender, text):
+    # Initialize user session from Firebase
+    initialize_user_session(sender)
+    
     append_to_memory(sender, "user", text)
     current_state = user_states.get(sender)
 
     # --- Universal Cancel/Menu ---
     if text.lower().strip() in ['cancel', 'stop', 'menu', 'start', 'exit']:
         if current_state:
-            del user_states[sender]; del user_temp_data[sender]
+            clear_user_session(sender)
             send_whatsapp_message(sender, "Okay, I've canceled the current operation.")
         menu_text = "Hello! I'm your AI teaching assistant. Please choose an option:"
         options = ["Ask Question", "Create Worksheet", "Create PPT", "Upload Material", "View Uploaded Files", "Podcast from Image", "Summary from Image", "Create Video"]
         send_menu_message(sender, menu_text, options)
         append_to_memory(sender, "assistant", "Displayed main menu.")
-        return  
+        return
 
     # --- Initial Triggers for New Conversations (if no active state) ---
     if not current_state:
-        # Convert to lowercase for case-insensitive comparison
         lower_text = text.lower().strip()
 
         if lower_text == "ask question":
-            user_states[sender] = "awaiting_question"
+            update_user_state(sender, state="awaiting_question")
             send_whatsapp_message(sender, "Of course! What is your question? I'll search through all uploaded documents and knowledge base.")
             return
         
         if lower_text == "create worksheet":
-            user_states[sender] = "awaiting_worksheet_topic"
+            update_user_state(sender, state="awaiting_worksheet_topic")
             send_whatsapp_message(sender, "Let's create a worksheet! What topic would you like the worksheet to be about?")
             return
             
-        if lower_text == "create a ppt" or lower_text == "create ppt":
-            user_states[sender] = "awaiting_ppt_topic"
+        if lower_text == "create ppt":
+            update_user_state(sender, state="awaiting_ppt_topic")
             send_whatsapp_message(sender, "Excellent! What topic would you like the presentation to be about?")
             return
             
         if lower_text == "upload material":
-            user_states[sender] = "awaiting_material_file"
+            update_user_state(sender, state="awaiting_material_file")
             send_whatsapp_message(sender, "Please send the file you'd like to upload (PDF, Word, PowerPoint, or Text). This will be added to my knowledge base for future questions!")
             return
             
         if lower_text == "view uploaded files":
-            uploaded_files = get_uploaded_files_list()
-            if uploaded_files:
-                files_list = "\n".join([f"• {os.path.basename(f)}" for f in uploaded_files])
-                send_whatsapp_message(sender, f"Files in your knowledge base:\n{files_list}")
+            # Get files from both Firebase and local vector store
+            firebase_files = get_user_uploaded_files(sender)
+            local_files = get_uploaded_files_list()
+            
+            if firebase_files or local_files:
+                files_list = []
+                for file in firebase_files:
+                    files_list.append(f"• {file['filename']} (Uploaded: {file['uploaded_at'].strftime('%Y-%m-%d')})")
+                for file in local_files:
+                    files_list.append(f"• {os.path.basename(file)}")
+                
+                files_text = "\n".join(files_list[:10])  # Show first 10 files
+                send_whatsapp_message(sender, f"Files in your knowledge base:\n{files_text}")
             else:
                 send_whatsapp_message(sender, "No files have been uploaded yet. Use 'Upload Material' to add files.")
             end_conversation_and_show_menu(sender, None)
             return
             
         if lower_text == "podcast from image":
-            user_states[sender] = "awaiting_podcast_image"
+            update_user_state(sender, state="awaiting_podcast_image")
             send_whatsapp_message(sender, "Please send me an image of the text you'd like to convert to a podcast.")
             return
             
         if lower_text == "summary from image":
-            user_states[sender] = "awaiting_summary_image"
+            update_user_state(sender, state="awaiting_summary_image")
             send_whatsapp_message(sender, "Please send me an image of the text you'd like me to summarize.")
             return
 
-        if lower_text == "create a video" or lower_text == "create video":
+        if lower_text == "create video":
             send_whatsapp_message(sender, "This feature is coming soon!")
             end_conversation_and_show_menu(sender, None)
             return
 
     # --- State-Based Conversation Flow ---
     if current_state == "awaiting_question":
-        response = query_subject_knowledge(text)  # Use generic function
+        response = query_subject_knowledge(text)
         end_conversation_and_show_menu(sender, response["result"])
         return
     
     if current_state == "awaiting_ppt_topic":
         try:
             topic = text.strip()
+            update_user_state(sender, temp_data={'ppt_topic': topic})
             send_whatsapp_message(sender, f"Okay, generating a 10-slide presentation on '{topic}'. This may take a moment...")
             ppt_content = generate_ppt_content(topic)
             if ppt_content:
@@ -1558,9 +1791,9 @@ def process_message(sender, text):
         handle_final_classroom_post(sender, title)
         return
 
-    # --- Fallback to a General Query ---
+    ## --- Fallback to a General Query ---
     print(f"Handling as a general query: '{text}'")
-    response = query_os_subject(text)
+    response = query_subject_knowledge(text)  # Changed from query_os_subject to query_subject_knowledge
     send_whatsapp_message(sender, response["result"])
     end_conversation_and_show_menu(sender, None)
 
@@ -1693,7 +1926,15 @@ if __name__ == "__main__":
     os.makedirs("data", exist_ok=True)
     os.makedirs("vector_index", exist_ok=True)
     os.makedirs(DYNAMIC_VECTOR_INDEX_PATH, exist_ok=True)
+    
+    # Initialize APIs
     init_google_apis()
+    
+    # Check Firebase connection
+    if db:
+        print("Firebase connected successfully")
+    else:
+        print("Firebase not connected - running in local mode only")
     
     # --- Send Startup Template Message ---
     print("Sending startup template to users...")
@@ -1713,16 +1954,6 @@ if __name__ == "__main__":
         build_subject_vector_index()
     else:
         print("Generic Subject Vector Index already exists. Skipping build.")
-
-    # Print knowledge base stats
-    print("Knowledge Base Status:")
-    print(f"- Base subject index: {'Exists' if os.path.exists('vector_index/subject_docs') else 'Missing'}")
-    print(f"- Dynamic uploads index: {'Exists' if os.path.exists(DYNAMIC_VECTOR_INDEX_PATH) and os.listdir(DYNAMIC_VECTOR_INDEX_PATH) else 'Empty'}")
-    
-    uploaded_files = get_uploaded_files_list()
-    print(f"- Uploaded files: {len(uploaded_files)}")
-    for file in uploaded_files:
-        print(f"  - {os.path.basename(file)}")
 
     print("Starting Flask app...")
     app.run(port=5000, debug=False)
