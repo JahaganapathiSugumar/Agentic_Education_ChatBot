@@ -1,11 +1,4 @@
-﻿# sensitive files
-.env
-credentials.json
-token.json
-sahayak-*.json
-
-
-
+﻿
 # python artifacts
 __pycache__/
 *.pyc
