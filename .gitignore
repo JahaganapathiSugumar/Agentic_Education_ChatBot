@@ -4,9 +4,7 @@ credentials.json
 token.json
 sahayak-*.json
 
-# local data / indexes
-vector_index/
-data/
+
 
 # python artifacts
 __pycache__/
