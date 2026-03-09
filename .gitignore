@@ -1,0 +1,121 @@
+# Workspace-level .gitignore for both Agentic Education projects
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pym
+*.pdb
+*.env
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+pip-log.txt
+.python-version
+.pytest_cache/
+.mypy_cache/
+.pyre/
+cython_debug/
+
+*.pickle
+credentials.json
+.env
+
+# Node / frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+pnpm-lock.yaml
+.npm/
+.npmrc
+.node_repl_history
+*.tgz
+.cache/
+.next/
+out/
+build/
+dist/
+.eslintcache
+.venv/
+
+# React / Expo / web build outputs
+.expo/
+.expo-shared/
+coverage/
+coverage-final.json
+test-results/
+*.log
+
+# Firebase and Google Cloud local files
+.firebase/
+.firebaserc
+firebase-debug.log
+firebase-debug.*.log
+*.json
+
+# Local config / secrets
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.jks
+token.json
+credentials.json
+sahayak-465916-8bf5ddce5515.json
+firebase_config.json
+credentials.json
+
+# Generated vector indexes and large binary data
+**/index.faiss
+**/*.faiss
+**/vector_index/**/index.faiss
+
+# Data / local caches
+*.sqlite3
+*.db
+*.db-journal
+*.sqlite
+*.bak
+*.backup
+*.swp
+*.swo
+
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+Icon?
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+htmlcov/
+coverage/
+.nyc_output/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
