@@ -18,9 +18,6 @@ A comprehensive AI-powered educational chatbot ecosystem offering dual interface
 - [Project Structure](#project-structure)
 - [Advanced Features](#advanced-features)
 - [Testing & Evaluation](#testing--evaluation)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
