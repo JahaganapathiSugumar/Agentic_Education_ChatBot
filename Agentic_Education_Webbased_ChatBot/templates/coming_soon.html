@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sahayak — Coming Soon</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #212121; --card: #2f2f2f; --border: #3f3f3f;
+            --text: #ececec; --muted: #8e8ea0;
+            --accent: #10a37f; --radius: 12px;
+        }
+        html, body {
+            min-height: 100vh; background: var(--bg); color: var(--text);
+            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 50% 30%, rgba(16,163,127,.10) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 40% at 80% 80%, rgba(91,91,214,.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .wrap {
+            position: relative; z-index: 1;
+            display: flex; flex-direction: column; align-items: center;
+            text-align: center; max-width: 480px;
+            animation: fadeUp .4s ease;
+        }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+
+        /* Animated ring */
+        .ring-wrap {
+            position: relative; width: 110px; height: 110px;
+            margin-bottom: 32px;
+        }
+        .ring-wrap svg.ring {
+            position: absolute; inset: 0;
+            animation: spin 3s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .inner-circle {
+            position: absolute; inset: 14px;
+            background: var(--card); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px;
+        }
+
+        h1 { font-size: 32px; font-weight: 800; margin-bottom: 12px; }
+        h1 span { color: var(--accent); }
+        .subtitle { font-size: 16px; color: var(--muted); line-height: 1.6; margin-bottom: 36px; }
+
+        /* Feature cards */
+        .features {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            width: 100%; margin-bottom: 36px;
+        }
+        .feat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 16px;
+            text-align: left;
+        }
+        .feat-card .icon { font-size: 20px; margin-bottom: 6px; }
+        .feat-card strong { font-size: 13px; display: block; margin-bottom: 3px; }
+        .feat-card span { font-size: 12px; color: var(--muted); }
+
+        /* Progress */
+        .progress-label {
+            font-size: 12px; color: var(--muted); text-align: left;
+            width: 100%; margin-bottom: 7px;
+        }
+        .progress-bar {
+            width: 100%; height: 5px; background: var(--border); border-radius: 10px;
+            margin-bottom: 36px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; width: 0; border-radius: 10px;
+            background: linear-gradient(90deg, var(--accent), #5b5bd6);
+            animation: fillBar 1.6s ease .3s forwards;
+        }
+        @keyframes fillBar { to { width: 40%; } }
+
+        /* Buttons */
+        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .btn {
+            padding: 11px 24px; border-radius: 8px; font-size: 14px;
+            font-weight: 600; cursor: pointer; border: none; transition: all .2s;
+        }
+        .btn-outline {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .btn-outline:hover { background: var(--card); color: var(--text); }
+        .btn-danger {
+            background: #2d1717; border: 1px solid #5f2020; color: #fca5a5;
+        }
+        .btn-danger:hover { background: #3a1d1d; }
+
+        /* greeting */
+        .greeting {
+            font-size: 14px; color: var(--muted); margin-bottom: 6px;
+        }
+        .greeting strong { color: var(--text); }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <!-- Animated icon -->
+    <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="55" cy="55" r="50" stroke="#3f3f3f" stroke-width="2" stroke-dasharray="4 4"/>
+            <circle cx="55" cy="55" r="50" stroke="url(#grad)" stroke-width="2.5"
+                    stroke-dasharray="60 260" stroke-linecap="round"/>
+            <defs>
+                <linearGradient id="grad" x1="0" y1="0" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#10a37f"/>
+                    <stop offset="100%" stop-color="#5b5bd6"/>
+                </linearGradient>
+            </defs>
+        </svg>
+        <div class="inner-circle">🎓</div>
+    </div>
+
+    <p class="greeting">Welcome, <strong>{{ name }}</strong></p>
+    <h1>Student Portal <span>Coming Soon</span></h1>
+    <p class="subtitle">
+        We're building a tailored learning experience just for students.
+        Personalised lessons, quizzes, and AI tutoring &mdash; all in one place.
+    </p>
+
+    <!-- Features -->
+    <div class="features">
+        <div class="feat-card">
+            <div class="icon">📚</div>
+            <strong>Smart Lessons</strong>
+            <span>AI-generated content at your pace</span>
+        </div>
+        <div class="feat-card">
+            <div class="icon">✏️</div>
+            <strong>Interactive Quizzes</strong>
+            <span>Instant feedback & explanations</span>
+        </div>
+        <div class="feat-card">
+            <div class="icon">🎙️</div>
+            <strong>Audio Summaries</strong>
+            <span>Listen to your study material</span>
+        </div>
+        <div class="feat-card">
+            <div class="icon">🤖</div>
+            <strong>AI Tutor</strong>
+            <span>Ask questions, get answers 24/7</span>
+        </div>
+    </div>
+
+    <!-- Progress -->
+    <p class="progress-label">Development progress — 40%</p>
+    <div class="progress-bar">
+        <div class="progress-fill"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="btn-row">
+        <button class="btn btn-outline" onclick="checkBack()">Check back later</button>
+        <button class="btn btn-danger"  onclick="doLogout()">Log out</button>
+    </div>
+</div>
+
+<script>
+function checkBack() {
+    const el = document.querySelector('.subtitle');
+    el.textContent = "We'll notify you as soon as the student portal is live. Thanks for your patience! 🙌";
+}
+async function doLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/auth';
+}
+</script>
+</body>
+</html>
